@@ -5,7 +5,7 @@
 
 from __future__ import print_function
 
-CLANG_PATH='/usr/lib/clang/10.0.0'
+CLANG_PATH='/usr/lib/clang/10.0.1'
 
 import pprint
 import sys
@@ -15,6 +15,8 @@ import re
 import math
 
 sdk_versions = [
+    "150",
+    "149",
     "148a",
     "147",
     "146",
@@ -140,6 +142,9 @@ files = [
     ("isteamparentalsettings.h", [
         "ISteamParentalSettings"
     ]),
+    ("isteamnetworkingmessages.h", [
+        "ISteamNetworkingMessages"
+    ]),
     ("isteamnetworkingsockets.h", [
         "ISteamNetworkingSockets"
     ]),
@@ -200,8 +205,17 @@ manually_handled_methods = {
             "ReceiveMessagesOnPollGroup",
             "SendMessages"
         ],
+        "cppISteamNetworkingSockets_SteamNetworkingSockets009": [
+            "ReceiveMessagesOnConnection",
+            "ReceiveMessagesOnPollGroup",
+            "SendMessages"
+        ],
         "cppISteamNetworkingUtils_SteamNetworkingUtils003": [
             "AllocateMessage",
+            "SetConfigValue",
+        ],
+        "cppISteamNetworkingMessages_SteamNetworkingMessages002": [
+            "ReceiveMessagesOnChannel"
         ],
 }
 
@@ -852,7 +866,10 @@ def handle_method(cfile, classname, winclassname, cppname, method, cpp, cpp_h, e
 
 def get_iface_version(classname):
     # ISteamClient -> STEAMCLIENT_INTERFACE_VERSION
-    defname = "%s_INTERFACE_VERSION" % classname[1:].upper()
+    if "SteamNetworkingMessages" in classname:
+        defname = "%s_VERSION" % classname[1:].upper()
+    else:
+        defname = "%s_INTERFACE_VERSION" % classname[1:].upper()
     if defname in iface_versions.keys():
         ver = iface_versions[defname]
     else:
@@ -1200,7 +1217,7 @@ for sdkver in sdk_versions:
     for f in os.listdir("steamworks_sdk_%s" % sdkver):
         x = open("steamworks_sdk_%s/%s" % (sdkver, f), "r")
         for l in x:
-            if "INTERFACE_VERSION" in l:
+            if "define STEAM" in l and "_VERSION" in l:
                 result = prog.match(l)
                 if result:
                     iface, version = result.group(1, 2)
