@@ -9,7 +9,6 @@
 #include "winbase.h"
 #include "winnls.h"
 #include "wine/debug.h"
-#include "wine/library.h"
 #include "wine/list.h"
 #include "steam_defs.h"
 
