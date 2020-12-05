@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 #NOTE: If you make modifications here, consider whether they should
 #be duplicated in ../vrclient/gen_wrapper.py
@@ -1215,7 +1215,10 @@ prog = re.compile("^#define\s*(\w*)\s*\"(.*)\"")
 for sdkver in sdk_versions:
     iface_versions = {}
     for f in os.listdir("steamworks_sdk_%s" % sdkver):
-        x = open("steamworks_sdk_%s/%s" % (sdkver, f), "r")
+        # Some files from Valve have non-UTF-8 stuff in the comments
+        # (typically the copyright symbol); therefore we ignore UTF-8
+        # encoding errors
+        x = open("steamworks_sdk_%s/%s" % (sdkver, f), "r", errors='replace')
         for l in x:
             if "define STEAM" in l and "_VERSION" in l:
                 result = prog.match(l)
@@ -1234,8 +1237,10 @@ for sdkver in sdk_versions:
 
         diagnostics = list(linux_build.diagnostics)
         if len(diagnostics) > 0:
-            print('There were parse errors')
-            pprint.pprint(diagnostics)
+            # Ignore known and harmless issues
+            if not(len(diagnostics) == 1 and "This file isn't used any more" in diagnostics[0].spelling):
+                print('There were parse errors')
+                pprint.pprint(diagnostics)
         else:
             windows_build = index.parse(input_name, args=['-x', 'c++', '-m32', '-Isteamworks_sdk_%s/' % sdkver, '-I' + CLANG_PATH + '/include/', '-mms-bitfields', '-U__linux__', '-Wno-incompatible-ms-struct'])
             windows_build64 = index.parse(input_name, args=['-x', 'c++', '-Isteamworks_sdk_%s/' % sdkver, '-I' + CLANG_PATH + '/include/', '-mms-bitfields', '-U__linux__', '-Wno-incompatible-ms-struct'])
@@ -1263,7 +1268,7 @@ cbsizefile = open("cb_getapi_sizes.dat", "w")
 
 cbsizefile.write("#ifdef __i386__\n")
 getapifile.write("#ifdef __i386__\n")
-for cb in cb_table.keys():
+for cb in sorted(cb_table.keys()):
     cbsizefile.write("case %u: /* %s */\n" % (cb, cb_table[cb][1][0][1]))
     cbsizefile.write("    return %u;\n" % cb_table[cb][0])
     getapifile.write("case %u:\n" % cb)
@@ -1277,7 +1282,7 @@ getapifile.write("#endif\n")
 
 cbsizefile.write("#ifdef __x86_64__\n")
 getapifile.write("#ifdef __x86_64__\n")
-for cb in cb_table64.keys():
+for cb in sorted(cb_table64.keys()):
     cbsizefile.write("case %u: /* %s */\n" % (cb, cb_table64[cb][1][0][1]))
     cbsizefile.write("    return %u;\n" % cb_table64[cb][0])
     getapifile.write("case %u:\n" % cb)
