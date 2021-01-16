@@ -8,7 +8,9 @@
 #include "windef.h"
 #include "winbase.h"
 #include "winnls.h"
+#include "winuser.h"
 #include "wine/debug.h"
+#include "wine/library.h"
 #include "wine/list.h"
 #include "steam_defs.h"
 
@@ -27,6 +29,7 @@ char g_tmppath[PATH_MAX];
 static char *controller_glyphs[512]; /* at least k_EControllerActionOrigin_Count */
 
 static CRITICAL_SECTION steamclient_cs = { NULL, -1, 0, 0, 0, 0 };
+static HANDLE steam_overlay_event;
 
 BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, void *reserved)
 {
@@ -36,6 +39,10 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, void *reserved)
     {
         case DLL_PROCESS_ATTACH:
             DisableThreadLibraryCalls(instance);
+            steam_overlay_event = CreateEventA(NULL, TRUE, FALSE, "__wine_steamclient_GameOverlayActivated");
+            break;
+        case DLL_PROCESS_DETACH:
+            CloseHandle(steam_overlay_event);
             break;
     }
 
@@ -553,6 +560,21 @@ bool CDECL Steam_BGetCallback(HSteamPipe pipe, struct winCallbackMsg_t *win_msg,
         BOOL need_free = TRUE;
         win_msg->m_hSteamUser = lin_msg.m_hSteamUser;
         win_msg->m_iCallback = lin_msg.m_iCallback;
+
+        if (win_msg->m_iCallback == 0x14b) /* GameOverlayActivated_t::k_iCallback */
+        {
+            uint8 activated = *(uint8 *)lin_msg.m_pubParam;
+            TRACE("steam overlay %sactivated, %sabling all X11 events.\n", activated ? "" : "de", activated ? "dis" : "en");
+            if (activated)
+            {
+                SetEvent(steam_overlay_event);
+                keybd_event(VK_LSHIFT, 0x2a /* lshift scancode */, KEYEVENTF_KEYUP, 0);
+                keybd_event(VK_RSHIFT, 0x36 /* rshift scancode */, KEYEVENTF_KEYUP, 0);
+                keybd_event(VK_TAB, 0x0f /* tab scancode */, KEYEVENTF_KEYUP, 0);
+            }
+            else ResetEvent(steam_overlay_event);
+        }
+
         switch(win_msg->m_iCallback | (lin_msg.m_cubParam << 16)){
 #include "cb_converters.dat"
             default:
